@@ -294,6 +294,8 @@ func getDefaultObserver(t *testing.T, ctx context.Context, base *sensors.Sensor,
 	}
 	saveInitInfo(o, exportFname)
 
+	obs.Sensors = append(sens, base)
+
 	// There doesn't appear to be a better way to enable the metrics server once and only
 	// once at the beginning of the observer tests. My initial thought was to use the init
 	// function in this file, however that actually ends up interfering with the Tetragon agent
