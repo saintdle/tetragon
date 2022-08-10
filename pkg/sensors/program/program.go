@@ -76,6 +76,8 @@ type Program struct {
 	unloaderOverride unloader.Unloader
 
 	PinMap map[string]string
+
+	LC *LoadedCollection
 }
 
 func (p *Program) SetRetProbe(ret bool) *Program {

@@ -190,13 +190,14 @@ func installTailCalls(mapDir string, spec *ebpf.CollectionSpec, coll *ebpf.Colle
 	return nil
 }
 
-func loadProgram(
+func doLoadProgram(
 	bpfDir string,
 	mapDirs []string,
 	load *Program,
 	withProgram AttachFunc,
 	ci *customInstall,
 	verbose int,
+	lc *LoadedCollection,
 ) error {
 	var btfSpec *btf.Spec
 	if btfFilePath := cachedbtf.GetCachedBTFFile(); btfFilePath != "/sys/kernel/btf/vmlinux" {
@@ -368,7 +369,28 @@ func loadProgram(
 		return err
 	}
 
-	return nil
+	// Copy the loaded collection before it's destroyed
+	return copyLoadedCollection(lc, coll)
+}
+
+func loadProgram(
+	bpfDir string,
+	mapDirs []string,
+	load *Program,
+	withProgram AttachFunc,
+	ci *customInstall,
+	verbose int,
+) error {
+	if KeepCollection {
+		lc := newLoadedCollection()
+		err := doLoadProgram(bpfDir, mapDirs, load, withProgram, ci, verbose, lc)
+		if err == nil {
+			load.LC = filterLoadedCollection(lc)
+			printLoadedCollection(load.Name, load.LC)
+		}
+		return err
+	}
+	return doLoadProgram(bpfDir, mapDirs, load, withProgram, ci, verbose, nil)
 }
 
 func LoadProgram(
