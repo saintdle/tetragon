@@ -3,6 +3,7 @@
 
 #include "operations.h"
 #include "bpf_events.h"
+#include "bpf_local_types.h"
 #include "skb.h"
 #include "sock.h"
 #include "../bpf_process_event.h"
@@ -45,6 +46,7 @@ enum {
 	bpf_map_type = 21,
 	user_namespace_type = 22,
 	capability_type = 23,
+	inode_type = 24,
 
 	nop_s64_ty = -10,
 	nop_u64_ty = -11,
@@ -927,6 +929,8 @@ static inline __attribute__((always_inline)) size_t type_to_min_size(int type,
 		return sizeof(struct user_namespace_info_type);
 	case capability_type:
 		return sizeof(struct capability_info_type);
+	case inode_type:
+		return sizeof(struct inode_info_type);
 	// nop or something else we do not process here
 	default:
 		return 0;
