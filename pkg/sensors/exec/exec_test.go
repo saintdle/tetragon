@@ -33,6 +33,7 @@ import (
 	tus "github.com/cilium/tetragon/pkg/testutils/sensors"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
+	"golang.org/x/sys/unix"
 )
 
 func TestMain(m *testing.M) {
@@ -554,4 +555,93 @@ func TestExecPerfring(t *testing.T) {
 		}
 	}
 	t.Fatalf("failed to find exec event")
+}
+
+func TestExecInodeNotDeleted(t *testing.T) {
+	var doneWG, readyWG sync.WaitGroup
+	defer doneWG.Wait()
+
+	ctx, cancel := context.WithTimeout(context.Background(), tus.Conf().CmdWaitTime)
+	defer cancel()
+
+	obs, err := observer.GetDefaultObserver(t, ctx, tus.Conf().TetragonLib)
+	if err != nil {
+		t.Fatalf("GetDefaultObserverWithFile error: %s", err)
+	}
+
+	observer.LoopEvents(ctx, t, &doneWG, &readyWG, obs)
+	readyWG.Wait()
+
+	strId := "tetragon-test-memfd"
+	if err := exec.Command("/bin/true", strId).Run(); err != nil {
+		t.Fatalf("command failed: %s", err)
+	}
+
+	checker := ec.NewUnorderedEventChecker(
+		ec.NewProcessExecChecker().
+			WithProcess(ec.NewProcessChecker().
+				WithBinary(sm.Suffix("/bin/true")).
+				WithArguments(sm.Full(strId)).
+				WithInfo(nil)),
+	)
+
+	err = jsonchecker.JsonTestCheck(t, checker)
+	assert.NoError(t, err)
+}
+
+func TestExecInodeDeleted(t *testing.T) {
+	var doneWG, readyWG sync.WaitGroup
+	defer doneWG.Wait()
+
+	ctx, cancel := context.WithTimeout(context.Background(), tus.Conf().CmdWaitTime)
+	defer cancel()
+
+	obs, err := observer.GetDefaultObserver(t, ctx, tus.Conf().TetragonLib)
+	if err != nil {
+		t.Fatalf("GetDefaultObserverWithFile error: %s", err)
+	}
+
+	// Get an anonymous shm
+	strId := "tetragon-test-memfd"
+	fd, err := unix.MemfdCreate(strId, 0)
+	if err != nil {
+		t.Fatalf("MemfdCreate() error: %s", err)
+	}
+
+	execPath := fmt.Sprintf("/proc/self/fd/%d", fd)
+	file := os.NewFile(uintptr(fd), execPath)
+	defer file.Close()
+
+	binPath := "/bin/true"
+	binData, err := os.ReadFile(binPath)
+	if err != nil {
+		t.Fatalf("Error ReadFile() on %s: %s", binPath, err)
+	}
+
+	// Write /bin/true in memory
+	_, err = file.Write(binData)
+	if err != nil {
+		t.Fatalf("Error write() to memfd file: %v", err)
+	}
+
+	observer.LoopEvents(ctx, t, &doneWG, &readyWG, obs)
+	readyWG.Wait()
+
+	// Execute from memory
+	if err := exec.Command(execPath, strId).Run(); err != nil {
+		t.Fatalf("command failed: %s", err)
+	}
+
+	checker := ec.NewUnorderedEventChecker(
+		ec.NewProcessExecChecker().
+			WithProcess(ec.NewProcessChecker().
+				WithBinary(sm.Suffix(execPath)).
+				WithArguments(sm.Full(strId)).
+				WithInfo(ec.NewExecInfoChecker().
+					WithInode(ec.NewInodeChecker().
+						WithDeleted(true)))),
+	)
+
+	err = jsonchecker.JsonTestCheck(t, checker)
+	assert.NoError(t, err)
 }
