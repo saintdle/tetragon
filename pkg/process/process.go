@@ -172,6 +172,7 @@ func GetProcess(
 	parent tetragonAPI.MsgExecveKey,
 	capabilities tetragonAPI.MsgCapabilities,
 	namespaces tetragonAPI.MsgNamespaces,
+	msgInfo tetragonAPI.MsgInfo,
 ) (*ProcessInternal, *hubblev1.Endpoint) {
 	args, cwd := ArgsDecoder(process.Args, process.Flags)
 	var parentExecID string
@@ -184,6 +185,7 @@ func GetProcess(
 	protoPod, endpoint := k8s.GetPodInfo(containerID, process.Filename, args, process.NSPID)
 	caps := caps.GetMsgCapabilities(capabilities)
 	ns := namespace.GetMsgNamespaces(namespaces)
+	info := exec.GetExecInfo(&msgInfo)
 	return &ProcessInternal{
 		process: &tetragon.Process{
 			Pid:          &wrapperspb.UInt32Value{Value: process.PID},
@@ -198,6 +200,7 @@ func GetProcess(
 			ExecId:       execID,
 			Docker:       containerID,
 			ParentExecId: parentExecID,
+			Info:         info,
 			Refcnt:       0,
 		},
 		capabilities: caps,
@@ -238,9 +241,9 @@ func AddExecEvent(event *tetragonAPI.MsgExecveEventUnix) *ProcessInternal {
 	if event.CleanupProcess.Ktime == 0 || event.Process.Flags&api.EventClone != 0 {
 		// there is a case where we cannot find this entry in execve_map
 		// in that case we use as parent what Linux knows
-		proc, _ = GetProcess(event.Process, event.Kube.Docker, event.Parent, event.Capabilities, event.Namespaces)
+		proc, _ = GetProcess(event.Process, event.Kube.Docker, event.Parent, event.Capabilities, event.Namespaces, event.Info)
 	} else {
-		proc, _ = GetProcess(event.Process, event.Kube.Docker, event.CleanupProcess, event.Capabilities, event.Namespaces)
+		proc, _ = GetProcess(event.Process, event.Kube.Docker, event.CleanupProcess, event.Capabilities, event.Namespaces, event.Info)
 	}
 	procCache.Add(proc)
 	return proc

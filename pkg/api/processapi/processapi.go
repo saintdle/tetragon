@@ -72,6 +72,15 @@ type MsgK8sUnix struct {
 	Docker string
 }
 
+type MsgInode struct {
+	Initialized uint32
+	Nlink       uint32
+}
+
+type MsgInfo struct {
+	Inode MsgInode
+}
+
 type MsgExecveEvent struct {
 	Common         MsgCommon
 	Kube           MsgK8s
@@ -79,6 +88,7 @@ type MsgExecveEvent struct {
 	ParentFlags    uint64
 	Capabilities   MsgCapabilities
 	Namespaces     MsgNamespaces
+	Info           MsgInfo
 	CleanupProcess MsgExecveKey
 }
 
@@ -89,6 +99,7 @@ type MsgExecveEventUnix struct {
 	ParentFlags    uint64
 	Capabilities   MsgCapabilities
 	Namespaces     MsgNamespaces
+	Info           MsgInfo
 	CleanupProcess MsgExecveKey
 	Process        MsgProcess
 }

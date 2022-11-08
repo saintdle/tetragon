@@ -78,6 +78,15 @@ message Namespaces {
     Namespace user = 10;
 }
 
+message Inode {
+	// inode links if 0 we report deleted
+	bool deleted = 1;
+}
+
+message ExecInfo {
+	Inode inode = 1;
+}
+
 message Process {
     // Exec ID uniquely identifies the process over time across all the nodes in the cluster.
     string exec_id = 1;
@@ -95,6 +104,8 @@ message Process {
     uint32 refcnt = 13;
     Capabilities cap = 14;
     Namespaces ns = 15;
+	// Execve info related to the event
+	ExecInfo info = 16;
 }
 
 message ProcessExec {

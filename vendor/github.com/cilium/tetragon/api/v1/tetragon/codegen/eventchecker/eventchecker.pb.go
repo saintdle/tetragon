@@ -1833,6 +1833,89 @@ func (checker *NamespacesChecker) FromNamespaces(event *tetragon.Namespaces) *Na
 	return checker
 }
 
+// InodeChecker implements a checker struct to check a Inode field
+type InodeChecker struct {
+	Deleted *bool `json:"deleted,omitempty"`
+}
+
+// NewInodeChecker creates a new InodeChecker
+func NewInodeChecker() *InodeChecker {
+	return &InodeChecker{}
+}
+
+// Check checks a Inode field
+func (checker *InodeChecker) Check(event *tetragon.Inode) error {
+	if event == nil {
+		return fmt.Errorf("InodeChecker: Inode field is nil")
+	}
+
+	if checker.Deleted != nil {
+		if *checker.Deleted != event.Deleted {
+			return fmt.Errorf("InodeChecker: Deleted has value %t which does not match expected value %t", event.Deleted, *checker.Deleted)
+		}
+	}
+	return nil
+}
+
+// WithDeleted adds a Deleted check to the InodeChecker
+func (checker *InodeChecker) WithDeleted(check bool) *InodeChecker {
+	checker.Deleted = &check
+	return checker
+}
+
+//FromInode populates the InodeChecker using data from a Inode field
+func (checker *InodeChecker) FromInode(event *tetragon.Inode) *InodeChecker {
+	if event == nil {
+		return checker
+	}
+	{
+		val := event.Deleted
+		checker.Deleted = &val
+	}
+	return checker
+}
+
+// ExecInfoChecker implements a checker struct to check a ExecInfo field
+type ExecInfoChecker struct {
+	Inode *InodeChecker `json:"inode,omitempty"`
+}
+
+// NewExecInfoChecker creates a new ExecInfoChecker
+func NewExecInfoChecker() *ExecInfoChecker {
+	return &ExecInfoChecker{}
+}
+
+// Check checks a ExecInfo field
+func (checker *ExecInfoChecker) Check(event *tetragon.ExecInfo) error {
+	if event == nil {
+		return fmt.Errorf("ExecInfoChecker: ExecInfo field is nil")
+	}
+
+	if checker.Inode != nil {
+		if err := checker.Inode.Check(event.Inode); err != nil {
+			return fmt.Errorf("ExecInfoChecker: Inode check failed: %w", err)
+		}
+	}
+	return nil
+}
+
+// WithInode adds a Inode check to the ExecInfoChecker
+func (checker *ExecInfoChecker) WithInode(check *InodeChecker) *ExecInfoChecker {
+	checker.Inode = check
+	return checker
+}
+
+//FromExecInfo populates the ExecInfoChecker using data from a ExecInfo field
+func (checker *ExecInfoChecker) FromExecInfo(event *tetragon.ExecInfo) *ExecInfoChecker {
+	if event == nil {
+		return checker
+	}
+	if event.Inode != nil {
+		checker.Inode = NewInodeChecker().FromInode(event.Inode)
+	}
+	return checker
+}
+
 // ProcessChecker implements a checker struct to check a Process field
 type ProcessChecker struct {
 	ExecId       *stringmatcher.StringMatcher       `json:"execId,omitempty"`
@@ -1850,6 +1933,7 @@ type ProcessChecker struct {
 	Refcnt       *uint32                            `json:"refcnt,omitempty"`
 	Cap          *CapabilitiesChecker               `json:"cap,omitempty"`
 	Ns           *NamespacesChecker                 `json:"ns,omitempty"`
+	Info         *ExecInfoChecker                   `json:"info,omitempty"`
 }
 
 // NewProcessChecker creates a new ProcessChecker
@@ -1947,6 +2031,11 @@ func (checker *ProcessChecker) Check(event *tetragon.Process) error {
 			return fmt.Errorf("ProcessChecker: Ns check failed: %w", err)
 		}
 	}
+	if checker.Info != nil {
+		if err := checker.Info.Check(event.Info); err != nil {
+			return fmt.Errorf("ProcessChecker: Info check failed: %w", err)
+		}
+	}
 	return nil
 }
 
@@ -2040,6 +2129,12 @@ func (checker *ProcessChecker) WithNs(check *NamespacesChecker) *ProcessChecker 
 	return checker
 }
 
+// WithInfo adds a Info check to the ProcessChecker
+func (checker *ProcessChecker) WithInfo(check *ExecInfoChecker) *ProcessChecker {
+	checker.Info = check
+	return checker
+}
+
 //FromProcess populates the ProcessChecker using data from a Process field
 func (checker *ProcessChecker) FromProcess(event *tetragon.Process) *ProcessChecker {
 	if event == nil {
@@ -2078,6 +2173,9 @@ func (checker *ProcessChecker) FromProcess(event *tetragon.Process) *ProcessChec
 	}
 	if event.Ns != nil {
 		checker.Ns = NewNamespacesChecker().FromNamespaces(event.Ns)
+	}
+	if event.Info != nil {
+		checker.Info = NewExecInfoChecker().FromExecInfo(event.Info)
 	}
 	return checker
 }

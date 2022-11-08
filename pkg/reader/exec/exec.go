@@ -5,7 +5,9 @@ package exec
 import (
 	"syscall"
 
+	"github.com/cilium/tetragon/api/v1/tetragon"
 	"github.com/cilium/tetragon/pkg/api"
+	"github.com/cilium/tetragon/pkg/api/processapi"
 	"golang.org/x/sys/unix"
 )
 
@@ -80,4 +82,25 @@ func Signal(s uint32) string {
 		return ""
 	}
 	return unix.SignalName(syscall.Signal(s))
+}
+
+func GetExecInfo(i *processapi.MsgInfo) *tetragon.ExecInfo {
+	// Check if fields were not set then return nil to
+	// avoid producing empty json structs. Add any check here.
+	if i.Inode.Initialized == 0 {
+		return nil
+	}
+
+	if i.Inode.Nlink == 0 {
+		info := &tetragon.ExecInfo{
+			Inode: &tetragon.Inode{
+				Deleted: true,
+			},
+		}
+
+		return info
+	}
+
+	// We return nil to generate empty field during json parsing
+	return nil
 }

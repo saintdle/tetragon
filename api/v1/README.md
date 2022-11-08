@@ -9,10 +9,12 @@
 - [tetragon/tetragon.proto](#tetragon_tetragon-proto)
     - [Capabilities](#tetragon-Capabilities)
     - [Container](#tetragon-Container)
+    - [ExecInfo](#tetragon-ExecInfo)
     - [GetHealthStatusRequest](#tetragon-GetHealthStatusRequest)
     - [GetHealthStatusResponse](#tetragon-GetHealthStatusResponse)
     - [HealthStatus](#tetragon-HealthStatus)
     - [Image](#tetragon-Image)
+    - [Inode](#tetragon-Inode)
     - [KprobeArgument](#tetragon-KprobeArgument)
     - [KprobeBpfAttr](#tetragon-KprobeBpfAttr)
     - [KprobeBpfMap](#tetragon-KprobeBpfMap)
@@ -197,6 +199,21 @@
 
 
 
+<a name="tetragon-ExecInfo"></a>
+
+### ExecInfo
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| inode | [Inode](#tetragon-Inode) |  |  |
+
+
+
+
+
+
 <a name="tetragon-GetHealthStatusRequest"></a>
 
 ### GetHealthStatusRequest
@@ -254,6 +271,21 @@
 | ----- | ---- | ----- | ----------- |
 | id | [string](#string) |  |  |
 | name | [string](#string) |  |  |
+
+
+
+
+
+
+<a name="tetragon-Inode"></a>
+
+### Inode
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| deleted | [bool](#bool) |  | inode links if 0 we report deleted |
 
 
 
@@ -592,6 +624,7 @@
 | refcnt | [uint32](#uint32) |  |  |
 | cap | [Capabilities](#tetragon-Capabilities) |  |  |
 | ns | [Namespaces](#tetragon-Namespaces) |  |  |
+| info | [ExecInfo](#tetragon-ExecInfo) |  | Execve info related to the event |
 
 
 

@@ -6,6 +6,7 @@
 
 #include "hubble_msg.h"
 #include "bpf_helpers.h"
+#include "bpf_local_types.h"
 
 /* Applying 'packed' attribute to structs causes clang to write to the
  * members byte-by-byte, as offsets may not be aligned. This is bad for
@@ -249,6 +250,10 @@ struct msg_k8s {
 	char docker_id[DOCKER_ID_LENGTH];
 }; // All fields aligned so no 'packed' attribute.
 
+struct msg_info {
+	struct inode_info_type inode;
+}; // All fields aligned so no 'packed' attribute.
+
 struct msg_execve_event {
 	struct msg_common common;
 	struct msg_k8s kube;
@@ -256,6 +261,7 @@ struct msg_execve_event {
 	__u64 parent_flags;
 	struct msg_capabilities caps;
 	struct msg_ns ns;
+	struct msg_info info;
 	struct msg_execve_key cleanup_key;
 	/* if add anything above please also update the args of
 	 * validate_msg_execve_size() in bpf_execve_event.c */
@@ -312,6 +318,8 @@ struct execve_heap {
 	union {
 		char pathname[256];
 		char maxpath[4096];
+		// info is used by multiple hooks through execve
+		struct msg_info info;
 	};
 };
 
@@ -321,6 +329,27 @@ struct {
 	__type(key, __s32);
 	__type(value, struct execve_heap);
 } execve_heap SEC(".maps");
+
+/* the tg_execve_joined_info_map allows to join and combine
+ * exec info that is gathered during different hooks
+ * through the execve call.
+ *
+ * tid is key as execve is a complex syscall where failures
+ * may happen at different levels and hooks, also threads
+ * may race where the thread group leader will be the one that
+ * gets a new mm and generate the execve tracepoint. Other
+ * terminated threads could have also triggered some of
+ * the installed hooks.
+ * There is no way to predict the behavior, so try to be as
+ * conservative as possible here, and allow map entries to
+ * re-used.
+ */
+struct {
+	__uint(type, BPF_MAP_TYPE_LRU_HASH);
+	__uint(max_entries, 8192);
+	__type(key, __u64);
+	__type(value, struct msg_info);
+} tg_execve_joined_info_map SEC(".maps");
 
 static inline __attribute__((always_inline)) int64_t
 validate_msg_execve_size(int64_t size)

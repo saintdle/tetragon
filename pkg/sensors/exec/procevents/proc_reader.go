@@ -173,6 +173,9 @@ func pushExecveEvents(p Procs) {
 	m.Process.Filename = filename
 	m.Process.Args = args
 
+	// empty
+	m.Info = processapi.MsgInfo{}
+
 	observer.AllListeners(&m)
 }
 

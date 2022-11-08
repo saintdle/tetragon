@@ -30,6 +30,7 @@ const (
 	GenericBpfMap        = 21
 	GenericUserNamespace = 22
 	GenericCapability    = 23
+	GenericInode         = 24
 
 	GenericNopType     = -1
 	GenericInvalidType = -2
@@ -83,6 +84,8 @@ func GenericTypeFromString(arg string) int {
 		return GenericUserNamespace
 	case "capability":
 		return GenericCapability
+	case "inode":
+		return GenericInode
 	default:
 		return GenericInvalidType
 	}
