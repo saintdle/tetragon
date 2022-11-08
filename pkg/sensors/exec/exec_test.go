@@ -589,7 +589,7 @@ func TestExecInodeNotDeleted(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestExecInodeDeleted(t *testing.T) {
+func TestExecMemfdInodeDeleted(t *testing.T) {
 	var doneWG, readyWG sync.WaitGroup
 	defer doneWG.Wait()
 
@@ -628,6 +628,67 @@ func TestExecInodeDeleted(t *testing.T) {
 	readyWG.Wait()
 
 	// Execute from memory
+	if err := exec.Command(execPath, strId).Run(); err != nil {
+		t.Fatalf("command failed: %s", err)
+	}
+
+	checker := ec.NewUnorderedEventChecker(
+		ec.NewProcessExecChecker().
+			WithProcess(ec.NewProcessChecker().
+				WithBinary(sm.Suffix(execPath)).
+				WithArguments(sm.Full(strId)).
+				WithInfo(ec.NewExecInfoChecker().
+					WithInode(ec.NewInodeChecker().
+						WithDeleted(true)))),
+	)
+
+	err = jsonchecker.JsonTestCheck(t, checker)
+	assert.NoError(t, err)
+}
+
+func TestExecInodeDeleted(t *testing.T) {
+	var doneWG, readyWG sync.WaitGroup
+	defer doneWG.Wait()
+
+	ctx, cancel := context.WithTimeout(context.Background(), tus.Conf().CmdWaitTime)
+	defer cancel()
+
+	obs, err := observer.GetDefaultObserver(t, ctx, tus.Conf().TetragonLib)
+	if err != nil {
+		t.Fatalf("GetDefaultObserverWithFile error: %s", err)
+	}
+
+	testDir := t.TempDir()
+	// Copy /bin/true
+	truePath := "/bin/true"
+	testTruePath := fmt.Sprintf("%s/true", testDir)
+
+	fmt.Printf("Copy: /usr/bin/cp -f " + truePath + " " + testTruePath + "\n")
+
+	if err := exec.Command("/usr/bin/cp", "-f", truePath, testTruePath).Run(); err != nil {
+		t.Fatalf("Failed to copy binary from '%s' to '%s': %s", truePath, testTruePath, err)
+	}
+
+	file, err := os.OpenFile(testTruePath, os.O_RDONLY, 0755)
+	if err != nil {
+		t.Fatalf("Failed to open binary '%s': %s", testTruePath, err)
+	}
+
+	defer file.Close()
+
+	// Drop inode reference
+	os.Remove(testTruePath)
+
+	// Let's just use plain old /proc method
+	// Should be same as glibc fexecve() =>
+	//      execveat(fd, "", argv, envp, AT_EMPTY_PATH);
+	execPath := fmt.Sprintf("/proc/self/fd/%d", file.Fd())
+
+	observer.LoopEvents(ctx, t, &doneWG, &readyWG, obs)
+	readyWG.Wait()
+
+	// Execute from fd
+	strId := "tetragon-test-execfd-deleted-inode"
 	if err := exec.Command(execPath, strId).Run(); err != nil {
 		t.Fatalf("command failed: %s", err)
 	}
