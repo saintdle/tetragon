@@ -168,14 +168,17 @@ event_execve(struct sched_execve_args *ctx)
 	struct msg_process *execve;
 	uint32_t binary = 0;
 	bool walker = 0;
-	__u32 zero = 0;
-	__u32 pid;
+	__u32 pid, zero = 0;
+	__u64 tid;
 	unsigned short fileoff;
 
 	event = map_lookup_elem(&execve_msg_heap_map, &zero);
 	if (!event)
 		return 0;
-	pid = (get_current_pid_tgid() >> 32);
+
+	tid = get_current_pid_tgid();
+	pid = (tid >> 32);
+
 	parent = event_find_parent();
 	if (parent) {
 		event->parent = parent->key;
@@ -193,6 +196,9 @@ event_execve(struct sched_execve_args *ctx)
 	event_args_builder(ctx, event);
 	compiler_barrier();
 	__event_get_task_info(event, MSG_OP_EXECVE, walker, true);
+
+	/* Read execve msg_info into event->info and delete the entry */
+	execve_joined_info_map_get(tid, &event->info, true);
 
 	tail_call(ctx, &execve_calls, 0);
 	return 0;

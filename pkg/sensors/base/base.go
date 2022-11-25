@@ -34,6 +34,14 @@ var (
 		"execve",
 	)
 
+	ExecveBprmCheck = program.Builder(
+		"bpf_execve_bprm_check.o",
+		"security_bprm_check",
+		"kprobe/security_bprm_check",
+		"tg_kp_bprm_check",
+		"kprobe",
+	)
+
 	Exit = program.Builder(
 		"bpf_exit.o",
 		"sched/sched_process_exit",
@@ -56,9 +64,12 @@ var (
 	TCPMonMapV60 = program.MapBuilder("tcpmon_map", ExecveV60)
 
 	/* Networking and Process Monitoring maps */
-	ExecveMap    = program.MapBuilder("execve_map", Execve)
-	ExecveMapV53 = program.MapBuilder("execve_map", ExecveV53)
-	ExecveMapV60 = program.MapBuilder("execve_map", ExecveV60)
+	ExecveMap        = program.MapBuilder("execve_map", Execve)
+	ExecveMapV53     = program.MapBuilder("execve_map", ExecveV53)
+	ExecveMapV60     = program.MapBuilder("execve_map", ExecveV60)
+	ExecveInfoMap    = program.MapBuilder("tg_execve_joined_info_map", Execve)
+	ExecveInfoMapV53 = program.MapBuilder("tg_execve_joined_info_map", ExecveV53)
+	ExecveInfoMapV60 = program.MapBuilder("tg_execve_joined_info_map", ExecveV60)
 
 	ExecveTailCallsMap    = program.MapBuilderPin("execve_calls", "execve_calls", Execve)
 	ExecveTailCallsMapV53 = program.MapBuilderPin("execve_calls", "execve_calls", ExecveV53)
@@ -122,6 +133,9 @@ func GetDefaultPrograms() []*program.Program {
 	} else {
 		progs = append(progs, Execve)
 	}
+
+	progs = append(progs, ExecveBprmCheck)
+
 	return progs
 }
 
@@ -140,6 +154,7 @@ func GetDefaultMaps() []*program.Map {
 	} else if kernels.EnableLargeProgs() {
 		maps = append(maps,
 			ExecveMapV53,
+			ExecveInfoMapV53,
 			ExecveStatsV53,
 			ExecveTailCallsMapV53,
 			NamesMapV53,
@@ -149,6 +164,7 @@ func GetDefaultMaps() []*program.Map {
 	} else {
 		maps = append(maps,
 			ExecveMap,
+			ExecveInfoMap,
 			ExecveStats,
 			ExecveTailCallsMap,
 			NamesMap,

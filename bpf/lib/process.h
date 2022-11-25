@@ -414,6 +414,39 @@ static inline __attribute__((always_inline)) void execve_map_delete(__u32 pid)
 		*cntr = *cntr - 1;
 }
 
+static inline __attribute__((always_inline)) void
+execve_joined_info_map_set(__u64 tid, struct msg_info *info)
+{
+	map_update_elem(&tg_execve_joined_info_map, &tid, info, BPF_ANY);
+}
+
+static inline __attribute__((always_inline)) bool
+execve_joined_info_map_get(__u64 tid, struct msg_info *info, bool delete)
+{
+	struct msg_info *linfo;
+
+	linfo = map_lookup_elem(&tg_execve_joined_info_map, &tid);
+	if (!linfo)
+		return false;
+	if (info)
+		memcpy(info, linfo, sizeof(struct msg_info));
+
+	if (delete)
+		map_delete_elem(&tg_execve_joined_info_map, &tid);
+
+	return true;
+}
+
+static inline __attribute__((always_inline)) void
+execve_joined_info_map_clear(__u64 tid)
+{
+	struct msg_info *info =
+		map_lookup_elem(&tg_execve_joined_info_map, &tid);
+
+	if (info)
+		map_delete_elem(&tg_execve_joined_info_map, &tid);
+}
+
 _Static_assert(sizeof(struct execve_map_value) % 8 == 0,
 	       "struct execve_map_value should have size multiple of 8 bytes");
 #endif //_PROCESS__
