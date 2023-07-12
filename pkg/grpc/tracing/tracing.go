@@ -6,10 +6,12 @@ import (
 	"fmt"
 
 	"github.com/cilium/tetragon/api/v1/tetragon"
+	"github.com/cilium/tetragon/pkg/api/calltraceapi"
 	"github.com/cilium/tetragon/pkg/api/processapi"
 	"github.com/cilium/tetragon/pkg/api/tracingapi"
 	api "github.com/cilium/tetragon/pkg/api/tracingapi"
 	"github.com/cilium/tetragon/pkg/eventcache"
+	"github.com/cilium/tetragon/pkg/ksyms"
 	"github.com/cilium/tetragon/pkg/ktime"
 	"github.com/cilium/tetragon/pkg/logger"
 	"github.com/cilium/tetragon/pkg/option"
@@ -27,6 +29,16 @@ import (
 var (
 	nodeName = node.GetNodeNameForExport()
 )
+
+var KSymbols *ksyms.Ksyms
+
+func init() {
+	var err error
+	KSymbols, err = ksyms.NewKsyms("/proc")
+	if err != nil {
+		panic(err)
+	}
+}
 
 func kprobeAction(act uint64) tetragon.KprobeAction {
 	switch act {
@@ -239,6 +251,18 @@ func GetProcessKprobe(event *MsgGenericKprobeUnix) *tetragon.ProcessKprobe {
 		}
 	}
 
+	var stackTrace []string
+	for _, addr := range event.StackTrace.Stack {
+		if addr != 0 {
+			fnOffset, err := KSymbols.GetFnOffset(addr)
+			if err != nil {
+				fmt.Println("oups")
+				continue
+			}
+			stackTrace = append(stackTrace, fnOffset.ToString())
+		}
+	}
+
 	tetragonEvent := &tetragon.ProcessKprobe{
 		Process:      tetragonProcess,
 		Parent:       tetragonParent,
@@ -246,6 +270,7 @@ func GetProcessKprobe(event *MsgGenericKprobeUnix) *tetragon.ProcessKprobe {
 		Args:         tetragonArgs,
 		Return:       tetragonReturnArg,
 		Action:       kprobeAction(event.Action),
+		StackTrace:   stackTrace,
 	}
 
 	if ec := eventcache.Get(); ec != nil &&
@@ -393,6 +418,7 @@ type MsgGenericKprobeUnix struct {
 	FuncName     string
 	Args         []tracingapi.MsgGenericKprobeArg
 	PolicyName   string
+	StackTrace   calltraceapi.MsgCalltrace
 }
 
 func (msg *MsgGenericKprobeUnix) Notify() bool {

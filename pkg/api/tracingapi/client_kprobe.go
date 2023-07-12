@@ -49,6 +49,7 @@ type MsgGenericKprobe struct {
 	ActionId     uint64
 	ActionArgId  uint32
 	Tid          uint32 // The recorded TID that triggered the event
+	StackID      uint32
 }
 
 type MsgGenericKprobeArgPath struct {

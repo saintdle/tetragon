@@ -414,6 +414,7 @@ message ProcessKprobe {
     KprobeArgument return = 5;
     // Action performed when the kprobe matched.
     KprobeAction action = 6;
+    repeated string stack_trace = 7;
 }
 
 message ProcessTracepoint {

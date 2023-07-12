@@ -32,6 +32,7 @@ const (
 	ActionTypeSignal      = 9
 	ActionTypeTrackSock   = 10
 	ActionTypeUntrackSock = 11
+	ActionTypeStackTrace  = 12
 )
 
 var actionTypeTable = map[string]uint32{
@@ -47,6 +48,7 @@ var actionTypeTable = map[string]uint32{
 	"signal":      ActionTypeSignal,
 	"tracksock":   ActionTypeTrackSock,
 	"untracksock": ActionTypeUntrackSock,
+	"stacktrace":  ActionTypeStackTrace,
 }
 
 var actionTypeStringTable = map[uint32]string{
@@ -62,6 +64,7 @@ var actionTypeStringTable = map[uint32]string{
 	ActionTypeSignal:      "signal",
 	ActionTypeTrackSock:   "tracksock",
 	ActionTypeUntrackSock: "untracksock",
+	ActionTypeStackTrace:  "stacktrace",
 }
 
 // Action argument table entry (for URL and FQDN arguments)

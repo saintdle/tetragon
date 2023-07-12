@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net"
 	"net/http"
 	"path"
@@ -1077,6 +1078,29 @@ func handleGenericKprobe(r *bytes.Reader) ([]observer.Event, error) {
 	} else {
 		ktimeEnter = m.Common.Ktime
 		printers = gk.argSigPrinters
+	}
+
+	// stack trace
+	if m.StackID != 0 {
+		// mapFD, err := os.Open("/sys/fs/bpf/tetragon/gkp-sensor-1-gkp-0-stack_traces_map")
+		// if err != nil {
+		// 	log.Fatal(err)
+		// }
+		stackTraceMap, err := ebpf.LoadPinnedMap("/sys/fs/bpf/tetragon/gkp-sensor-1-gkp-0-stack_traces_map", nil)
+		// stackTraceMap, err := ebpf.NewMap(&ebpf.MapSpec{Name: "stack_traces_ma"})
+		// stackTraceMap, err := ebpf.NewMapFromFD(int(mapFD.Fd()))
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer stackTraceMap.Close()
+
+		var stacktrace [16]uint64
+		err = stackTraceMap.Lookup(m.StackID, &stacktrace)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		unix.StackTrace.Stack = stacktrace
 	}
 
 	for _, a := range printers {

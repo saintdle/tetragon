@@ -83,6 +83,7 @@ enum {
 	ACTION_SIGNAL = 9,
 	ACTION_TRACKSOCK = 10,
 	ACTION_UNTRACKSOCK = 11,
+	ACTION_STACKTRACE = 12,
 };
 
 enum {
@@ -1796,8 +1797,15 @@ update_pid_tid_from_sock(struct msg_generic_kprobe *e, __u64 sockaddr)
 }
 #endif
 
+struct bpf_map_def SEC("maps") stack_traces_map = {
+	.type = BPF_MAP_TYPE_STACK_TRACE,
+	.key_size = sizeof(u32),
+	.value_size = 127 * sizeof(u64),
+	.max_entries = 10000,
+};
+
 static inline __attribute__((always_inline)) __u32
-do_action(__u32 i, struct msg_generic_kprobe *e,
+do_action(void *ctx, __u32 i, struct msg_generic_kprobe *e,
 	  struct selector_action *actions, struct bpf_map_def *override_tasks, bool *post)
 {
 	int signal __maybe_unused = FGS_SIGKILL;
@@ -1865,6 +1873,9 @@ do_action(__u32 i, struct msg_generic_kprobe *e,
 		socki = actions->act[++i];
 		err = tracksock(e, socki, action == ACTION_TRACKSOCK);
 		break;
+	case ACTION_STACKTRACE:
+		e->stack_id = get_stackid(ctx, &stack_traces_map, 0);
+		bpf_printk("stackid %d", e->stack_id);
 	default:
 		break;
 	}
@@ -1885,7 +1896,7 @@ has_action(struct selector_action *actions, __u32 idx)
 
 /* Currently supporting 2 actions for selector. */
 static inline __attribute__((always_inline)) bool
-do_actions(struct msg_generic_kprobe *e, struct selector_action *actions,
+do_actions(void *ctx, struct msg_generic_kprobe *e, struct selector_action *actions,
 	   struct bpf_map_def *override_tasks)
 {
 	bool post = true;
@@ -1897,7 +1908,7 @@ do_actions(struct msg_generic_kprobe *e, struct selector_action *actions,
 	for (l = 0; l < MAX_ACTIONS; l++) {
 		if (!has_action(actions, i))
 			break;
-		i = do_action(i, e, actions, override_tasks, &post);
+		i = do_action(ctx, i, e, actions, override_tasks, &post);
 	}
 
 	return post;
@@ -1974,7 +1985,7 @@ generic_actions(void *ctx, struct bpf_map_def *heap,
 		     :);
 	actions = (struct selector_action *)&f[actoff];
 
-	postit = do_actions(e, actions, override_tasks);
+	postit = do_actions(ctx, e, actions, override_tasks);
 	if (postit)
 		tail_call(ctx, tailcalls, 12);
 	return 1;

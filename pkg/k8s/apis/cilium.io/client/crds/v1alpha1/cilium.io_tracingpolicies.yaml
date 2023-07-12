@@ -218,6 +218,7 @@ spec:
                                   - NoPost
                                   - TrackSock
                                   - UntrackSock
+                                  - StackTrace
                                   type: string
                                 argError:
                                   description: error value for override action
@@ -736,6 +737,7 @@ spec:
                                   - NoPost
                                   - TrackSock
                                   - UntrackSock
+                                  - StackTrace
                                   type: string
                                 argError:
                                   description: error value for override action
@@ -1100,6 +1102,7 @@ spec:
                                   - NoPost
                                   - TrackSock
                                   - UntrackSock
+                                  - StackTrace
                                   type: string
                                 argError:
                                   description: error value for override action
