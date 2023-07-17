@@ -1797,12 +1797,12 @@ update_pid_tid_from_sock(struct msg_generic_kprobe *e, __u64 sockaddr)
 }
 #endif
 
-struct bpf_map_def SEC("maps") stack_traces_map = {
-	.type = BPF_MAP_TYPE_STACK_TRACE,
-	.key_size = sizeof(u32),
-	.value_size = 127 * sizeof(u64),
-	.max_entries = 10000,
-};
+struct {
+	__uint(type, BPF_MAP_TYPE_STACK_TRACE);
+	__uint(max_entries, 10000);
+	__uint(key_size, sizeof(__u32));
+	__uint(value_size, sizeof(__u64) * 127);
+} stack_traces_map SEC(".maps");
 
 static inline __attribute__((always_inline)) __u32
 do_action(void *ctx, __u32 i, struct msg_generic_kprobe *e,
