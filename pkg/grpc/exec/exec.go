@@ -288,6 +288,36 @@ func GetProcessExit(event *MsgExitEventUnix) *tetragon.ProcessExit {
 	code := event.Info.Code >> 8
 	signal := readerexec.Signal(event.Info.Code & 0xFF)
 
+	// Now since we want to correlate the exit and exec events, then
+	// the final TID of the exit event _must matches_ the PID and TID of exec
+	// event. The tetragonEvent.Process of this exit event is constructed either:
+	//   1. When looking up the process by its PID from user space cache
+	//      then we get the process that was pushed during exec or clone.
+	//   2. Out of order exec event, and this is same as (1).
+	//
+	// For all these cases the TID of the exit will be _automatically set_ to the
+	// TID and PID of the exec/clone event.
+	//
+	// However from bpf side exit events on their own must send bpf PID == TID, if not
+	// let's print a warning that is useful to bisect things. This helps to
+	// assert the different variants of tetragon and that bpf part did not change
+	// on behalf of user space, also useful as we cache only the main thread in the
+	// process cache, and it can die before other threads...
+	//
+	// Check must be against event.Info.Tid so we cover all the cases of
+	// the tetragonProcess.Pid against BPF.
+	if tetragonProcess.Pid.GetValue() != event.Info.Tid {
+		logger.GetLogger().WithFields(logrus.Fields{
+			"event.name":           "Exit",
+			"event.process.pid":    event.ProcessKey.Pid,
+			"event.process.tid":    event.Info.Tid,
+			"event.process.binary": tetragonProcess.Binary,
+		}).Warn("ExitEvent: process PID and TID mismatch")
+		// Final tetragonEvent.Tid will have the TID and PID of the exec/clone
+		// event, as it is looked up from the process cache and constructed
+		// based on those events.
+	}
+
 	tetragonEvent := &tetragon.ProcessExit{
 		Process: tetragonProcess,
 		Parent:  tetragonParent,
