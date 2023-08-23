@@ -21,6 +21,7 @@ import (
 	"github.com/cilium/ebpf"
 	"github.com/cilium/tetragon/pkg/api/dataapi"
 	"github.com/cilium/tetragon/pkg/api/ops"
+	"github.com/cilium/tetragon/pkg/api/processapi"
 	api "github.com/cilium/tetragon/pkg/api/tracingapi"
 	"github.com/cilium/tetragon/pkg/arch"
 	"github.com/cilium/tetragon/pkg/bpf"
@@ -1064,7 +1065,7 @@ func handleGenericKprobe(r *bytes.Reader) ([]observer.Event, error) {
 	unix.Capabilities = m.Capabilities
 	unix.PolicyName = gk.policyName
 
-	returnEvent := m.Common.Flags > 0
+	returnEvent := m.Common.Flags&processapi.MSG_COMMON_FLAG_RETURN != 0
 
 	var ktimeEnter uint64
 	var printers []argPrinters
@@ -1081,26 +1082,31 @@ func handleGenericKprobe(r *bytes.Reader) ([]observer.Event, error) {
 	}
 
 	// stack trace
-	if m.StackID != 0 {
-		// mapFD, err := os.Open("/sys/fs/bpf/tetragon/gkp-sensor-1-gkp-0-stack_traces_map")
-		// if err != nil {
-		// 	log.Fatal(err)
-		// }
-		stackTraceMap, err := ebpf.LoadPinnedMap("/sys/fs/bpf/tetragon/gkp-sensor-1-gkp-0-stack_traces_map", nil)
-		// stackTraceMap, err := ebpf.NewMap(&ebpf.MapSpec{Name: "stack_traces_ma"})
-		// stackTraceMap, err := ebpf.NewMapFromFD(int(mapFD.Fd()))
-		if err != nil {
-			log.Fatal(err)
-		}
-		defer stackTraceMap.Close()
+	if m.Common.Flags&processapi.MSG_COMMON_FLAG_STACKTRACE != 0 {
+		if m.StackID < 0 {
+			fmt.Println("error in stack trace")
+		} else {
+			id := uint32(m.StackID)
+			// mapFD, err := os.Open("/sys/fs/bpf/tetragon/gkp-sensor-1-gkp-0-stack_traces_map")
+			// if err != nil {
+			// 	log.Fatal(err)
+			// }
+			stackTraceMap, err := ebpf.LoadPinnedMap("/sys/fs/bpf/tetragon/gkp-sensor-1-gkp-0-stack_traces_map", nil)
+			// stackTraceMap, err := ebpf.NewMap(&ebpf.MapSpec{Name: "stack_traces_ma"})
+			// stackTraceMap, err := ebpf.NewMapFromFD(int(mapFD.Fd()))
+			if err != nil {
+				log.Fatal(err)
+			}
+			defer stackTraceMap.Close()
 
-		var stacktrace [16]uint64
-		err = stackTraceMap.Lookup(m.StackID, &stacktrace)
-		if err != nil {
-			log.Fatal(err)
-		}
+			var stacktrace [16]uint64
+			err = stackTraceMap.Lookup(id, &stacktrace)
+			if err != nil {
+				log.Fatal(err)
+			}
 
-		unix.StackTrace.Stack = stacktrace
+			unix.StackTrace.Stack = stacktrace
+		}
 	}
 
 	for _, a := range printers {

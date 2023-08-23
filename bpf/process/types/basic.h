@@ -1874,8 +1874,15 @@ do_action(void *ctx, __u32 i, struct msg_generic_kprobe *e,
 		err = tracksock(e, socki, action == ACTION_TRACKSOCK);
 		break;
 	case ACTION_STACKTRACE:
+		// Stack id 0 is valid so we need a flag.
+		e->common.flags |= MSG_COMMON_FLAG_STACKTRACE;
+		// We could use BPF_F_REUSE_STACKID to override old with new stack if
+		// same stack id. It means that if we have a collision and user space
+		// reads the old one too late, we are reading the wrong stack (the new,
+		// old one was overwritten).
+		//
+		// Here we just signal that there was a collision returning -EEXIST.
 		e->stack_id = get_stackid(ctx, &stack_traces_map, 0);
-		bpf_printk("stackid %d", e->stack_id);
 	default:
 		break;
 	}
