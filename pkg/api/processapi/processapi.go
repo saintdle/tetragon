@@ -29,6 +29,9 @@ const (
 
 	// MsgUnixSize of msg
 	MsgUnixSize uint32 = 640
+
+	// flags of MsgCommon
+	MSG_COMMON_FLAG_RETURN = 0x1
 )
 
 type MsgExec struct {
