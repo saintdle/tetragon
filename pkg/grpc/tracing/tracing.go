@@ -251,15 +251,19 @@ func GetProcessKprobe(event *MsgGenericKprobeUnix) *tetragon.ProcessKprobe {
 		}
 	}
 
-	var stackTrace []string
+	var stackTrace []*tetragon.StackAddress
 	for _, addr := range event.StackTrace.Stack {
 		if addr != 0 {
+			var stackAddress tetragon.StackAddress
 			fnOffset, err := KSymbols.GetFnOffset(addr)
 			if err != nil {
 				fmt.Println("oups")
 				continue
 			}
-			stackTrace = append(stackTrace, fnOffset.ToString())
+			stackAddress.Address = addr
+			stackAddress.Symbol = fnOffset.SymName
+			stackAddress.Offset = fnOffset.Offset
+			stackTrace = append(stackTrace, &stackAddress)
 		}
 	}
 

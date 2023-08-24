@@ -1797,11 +1797,13 @@ update_pid_tid_from_sock(struct msg_generic_kprobe *e, __u64 sockaddr)
 }
 #endif
 
+// from linux/perf_event.h, note that this can be controlled with sysctl kernel.perf_event_max_stack
+#define PERF_MAX_STACK_DEPTH 127
 struct {
 	__uint(type, BPF_MAP_TYPE_STACK_TRACE);
-	__uint(max_entries, 10000);
+	__uint(max_entries, 32768);
 	__uint(key_size, sizeof(__u32));
-	__uint(value_size, sizeof(__u64) * 127);
+	__uint(value_size, sizeof(__u64) * PERF_MAX_STACK_DEPTH);
 } stack_traces_map SEC(".maps");
 
 static inline __attribute__((always_inline)) __u32

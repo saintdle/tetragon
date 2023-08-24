@@ -760,6 +760,9 @@ func addKprobe(funcName string, f *v1alpha1.KProbeSpec, in *addKprobeIn) (out *a
 	selNamesMap := program.MapBuilderPin("sel_names_map", sensors.PathJoin(pinPath, "sel_names_map"), load)
 	out.maps = append(out.maps, selNamesMap)
 
+	stackTraceMap := program.MapBuilderPin("stack_traces_map", sensors.PathJoin(pinPath, "stack_traces_map"), load)
+	out.maps = append(out.maps, stackTraceMap)
+
 	if kernels.EnableLargeProgs() {
 		socktrack := program.MapBuilderPin("socktrack_map", sensors.PathJoin(in.sensorPath, "socktrack_map"), load)
 		out.maps = append(out.maps, socktrack)
@@ -1081,31 +1084,25 @@ func handleGenericKprobe(r *bytes.Reader) ([]observer.Event, error) {
 		printers = gk.argSigPrinters
 	}
 
-	// stack trace
 	if m.Common.Flags&processapi.MSG_COMMON_FLAG_STACKTRACE != 0 {
 		if m.StackID < 0 {
-			fmt.Println("error in stack trace")
+			logger.GetLogger().Warnf("failed to retrieve stacktrace: id equal to errno %d", m.StackID)
 		} else {
+			// remove the error part
 			id := uint32(m.StackID)
-			// mapFD, err := os.Open("/sys/fs/bpf/tetragon/gkp-sensor-1-gkp-0-stack_traces_map")
-			// if err != nil {
-			// 	log.Fatal(err)
-			// }
-			stackTraceMap, err := ebpf.LoadPinnedMap("/sys/fs/bpf/tetragon/gkp-sensor-1-gkp-0-stack_traces_map", nil)
-			// stackTraceMap, err := ebpf.NewMap(&ebpf.MapSpec{Name: "stack_traces_ma"})
-			// stackTraceMap, err := ebpf.NewMapFromFD(int(mapFD.Fd()))
+
+			stackTraceMap, err := ebpf.LoadPinnedMap("/sys/fs/bpf/tetragon/gkp-sensor-1-gkp-0-stack_traces_map", &ebpf.LoadPinOptions{
+				ReadOnly: true,
+			})
 			if err != nil {
-				log.Fatal(err)
+				logger.GetLogger().WithError(err).Warn("failed to load the stacktrace map")
 			}
 			defer stackTraceMap.Close()
 
-			var stacktrace [16]uint64
-			err = stackTraceMap.Lookup(id, &stacktrace)
+			err = stackTraceMap.Lookup(id, &unix.StackTrace.Stack)
 			if err != nil {
 				log.Fatal(err)
 			}
-
-			unix.StackTrace.Stack = stacktrace
 		}
 	}
 

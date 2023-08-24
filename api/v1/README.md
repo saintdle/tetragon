@@ -745,7 +745,7 @@ https://github.com/opencontainers/runtime-spec/blob/main/config.md#createcontain
 | args | [KprobeArgument](#tetragon-KprobeArgument) | repeated | Arguments definition of the observed kprobe. |
 | return | [KprobeArgument](#tetragon-KprobeArgument) |  | Return value definition of the observed kprobe. |
 | action | [KprobeAction](#tetragon-KprobeAction) |  | Action performed when the kprobe matched. |
-| stack_trace | [string](#string) | repeated |  |
+| stack_trace | [StackAddress](#tetragon-StackAddress) | repeated |  |
 
 
 
@@ -1120,6 +1120,7 @@ Determins the behaviour of a field filter
 | ----- | ---- | ----- | ----------- |
 | address | [uint64](#uint64) |  |  |
 | symbol | [string](#string) |  |  |
+| offset | [uint64](#uint64) |  |  |
 
 
 

@@ -797,6 +797,8 @@ func ParseMatchAction(k *KernelSelectorState, action *v1alpha1.ActionSelector, a
 	case ActionTypeSigKill:
 		// no arguments
 		// NB: we should deprecate this action and just use ActionTypeSignal with SIGKILL
+	case ActionTypeStackTrace:
+		// no arguments
 	default:
 		return fmt.Errorf("ParseMatchAction: act %d (%s) is missing a handler", act, actionTypeStringTable[act])
 	}

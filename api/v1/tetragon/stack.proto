@@ -23,6 +23,7 @@ package tetragon;
 message StackAddress {
 	uint64 address = 1;
 	string symbol = 2;
+	uint64 offset = 3;
 }
 
 message StackTrace {
