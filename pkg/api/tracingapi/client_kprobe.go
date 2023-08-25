@@ -22,6 +22,7 @@ const (
 	ActionLookupDns  = 7
 	ActionNoPost     = 8
 	ActionSignal     = 9
+	ActionStackTrace = 12
 )
 
 const (

@@ -62,6 +62,8 @@ const (
 	KprobeAction_KPROBE_ACTION_NOPOST KprobeAction = 9
 	// Signal action sends specified signal to the process.
 	KprobeAction_KPROBE_ACTION_SIGNAL KprobeAction = 10
+	// StackTrace action retrieves the kernel stack trace of the call.
+	KprobeAction_KPROBE_ACTION_STACKTRACE KprobeAction = 12
 )
 
 // Enum value maps for KprobeAction.
@@ -78,6 +80,7 @@ var (
 		8:  "KPROBE_ACTION_DNSLOOKUP",
 		9:  "KPROBE_ACTION_NOPOST",
 		10: "KPROBE_ACTION_SIGNAL",
+		12: "KPROBE_ACTION_STACKTRACE",
 	}
 	KprobeAction_value = map[string]int32{
 		"KPROBE_ACTION_UNKNOWN":    0,
@@ -91,6 +94,7 @@ var (
 		"KPROBE_ACTION_DNSLOOKUP":  8,
 		"KPROBE_ACTION_NOPOST":     9,
 		"KPROBE_ACTION_SIGNAL":     10,
+		"KPROBE_ACTION_STACKTRACE": 12,
 	}
 )
 

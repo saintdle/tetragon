@@ -62,6 +62,8 @@ func kprobeAction(act uint64) tetragon.KprobeAction {
 		return tetragon.KprobeAction_KPROBE_ACTION_NOPOST
 	case tracingapi.ActionSignal:
 		return tetragon.KprobeAction_KPROBE_ACTION_SIGNAL
+	case tracingapi.ActionStackTrace:
+		return tetragon.KprobeAction_KPROBE_ACTION_STACKTRACE
 	default:
 		return tetragon.KprobeAction_KPROBE_ACTION_UNKNOWN
 	}

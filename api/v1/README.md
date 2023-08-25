@@ -913,6 +913,7 @@ RuntimeHookRequest synchronously propagates information to the agent about run-t
 | KPROBE_ACTION_DNSLOOKUP | 8 | GetURL action issue a DNS lookup against an URL from userspace. |
 | KPROBE_ACTION_NOPOST | 9 | NoPost action suppresses the transmission of the event to userspace. |
 | KPROBE_ACTION_SIGNAL | 10 | Signal action sends specified signal to the process. |
+| KPROBE_ACTION_STACKTRACE | 12 | StackTrace action retrieves the kernel stack trace of the call. |
 
 
  
