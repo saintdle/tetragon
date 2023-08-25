@@ -445,7 +445,7 @@ https://github.com/opencontainers/runtime-spec/blob/main/config.md#createcontain
 | args | [KprobeArgument](#tetragon-KprobeArgument) | repeated | Arguments definition of the observed kprobe. |
 | return | [KprobeArgument](#tetragon-KprobeArgument) |  | Return value definition of the observed kprobe. |
 | action | [KprobeAction](#tetragon-KprobeAction) |  | Action performed when the kprobe matched. |
-| stack_trace | [StackAddress](#tetragon-StackAddress) | repeated |  |
+| stack_trace | [string](#string) | repeated |  |
 
 <a name="tetragon-ProcessLoader"></a>
 
@@ -553,6 +553,7 @@ RuntimeHookRequest synchronously propagates information to the agent about run-t
 | KPROBE_ACTION_DNSLOOKUP | 8 | GetURL action issue a DNS lookup against an URL from userspace. |
 | KPROBE_ACTION_NOPOST | 9 | NoPost action suppresses the transmission of the event to userspace. |
 | KPROBE_ACTION_SIGNAL | 10 | Signal action sends specified signal to the process. |
+| KPROBE_ACTION_STACKTRACE | 12 | StackTrace action retrieves the kernel stack trace of the call. |
 
 <a name="tetragon_events-proto"></a>
 

@@ -5,8 +5,9 @@ package tracing
 import (
 	"fmt"
 
+	"golang.org/x/sys/unix"
+
 	"github.com/cilium/tetragon/api/v1/tetragon"
-	"github.com/cilium/tetragon/pkg/api/calltraceapi"
 	"github.com/cilium/tetragon/pkg/api/processapi"
 	"github.com/cilium/tetragon/pkg/api/tracingapi"
 	api "github.com/cilium/tetragon/pkg/api/tracingapi"
@@ -29,16 +30,6 @@ import (
 var (
 	nodeName = node.GetNodeNameForExport()
 )
-
-var KSymbols *ksyms.Ksyms
-
-func init() {
-	var err error
-	KSymbols, err = ksyms.NewKsyms("/proc")
-	if err != nil {
-		panic(err)
-	}
-}
 
 func kprobeAction(act uint64) tetragon.KprobeAction {
 	switch act {
@@ -253,19 +244,19 @@ func GetProcessKprobe(event *MsgGenericKprobeUnix) *tetragon.ProcessKprobe {
 		}
 	}
 
-	var stackTrace []*tetragon.StackAddress
-	for _, addr := range event.StackTrace.Stack {
+	var stackTrace []string
+	for _, addr := range event.StackTrace {
 		if addr != 0 {
-			var stackAddress tetragon.StackAddress
-			fnOffset, err := KSymbols.GetFnOffset(addr)
+			kernelSymbols, err := ksyms.KernelSymbols()
 			if err != nil {
-				fmt.Println("oups")
+				logger.GetLogger().WithError(err).Warn("stacktrace: failed to read kernel symbols")
+			}
+			fnOffset, err := kernelSymbols.GetFnOffset(addr)
+			if err != nil {
+				logger.GetLogger().WithField("address", addr).Warn("stacktrace: failed to retrieve symbol and offset")
 				continue
 			}
-			stackAddress.Address = addr
-			stackAddress.Symbol = fnOffset.SymName
-			stackAddress.Offset = fnOffset.Offset
-			stackTrace = append(stackTrace, &stackAddress)
+			stackTrace = append(stackTrace, fmt.Sprintf("0x%x: %s", addr, fnOffset.ToString()))
 		}
 	}
 
@@ -424,7 +415,7 @@ type MsgGenericKprobeUnix struct {
 	FuncName     string
 	Args         []tracingapi.MsgGenericKprobeArg
 	PolicyName   string
-	StackTrace   calltraceapi.MsgCalltrace
+	StackTrace   [unix.PERF_MAX_STACK_DEPTH]uint64
 }
 
 func (msg *MsgGenericKprobeUnix) Notify() bool {

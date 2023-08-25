@@ -703,7 +703,7 @@ type ProcessKprobeChecker struct {
 	Args         *KprobeArgumentListMatcher   `json:"args,omitempty"`
 	Return       *KprobeArgumentChecker       `json:"return,omitempty"`
 	Action       *KprobeActionChecker         `json:"action,omitempty"`
-	StackTrace   *StackAddressListMatcher     `json:"stackTrace,omitempty"`
+	StackTrace   *StringListMatcher           `json:"stackTrace,omitempty"`
 }
 
 // CheckEvent checks a single event and implements the EventChecker interface
@@ -826,7 +826,7 @@ func (checker *ProcessKprobeChecker) WithAction(check tetragon.KprobeAction) *Pr
 }
 
 // WithStackTrace adds a StackTrace check to the ProcessKprobeChecker
-func (checker *ProcessKprobeChecker) WithStackTrace(check *StackAddressListMatcher) *ProcessKprobeChecker {
+func (checker *ProcessKprobeChecker) WithStackTrace(check *StringListMatcher) *ProcessKprobeChecker {
 	checker.StackTrace = check
 	return checker
 }
@@ -861,15 +861,13 @@ func (checker *ProcessKprobeChecker) FromProcessKprobe(event *tetragon.ProcessKp
 	}
 	checker.Action = NewKprobeActionChecker(event.Action)
 	{
-		var checks []*StackAddressChecker
+		var checks []*stringmatcher.StringMatcher
 		for _, check := range event.StackTrace {
-			var convertedCheck *StackAddressChecker
-			if check != nil {
-				convertedCheck = NewStackAddressChecker().FromStackAddress(check)
-			}
+			var convertedCheck *stringmatcher.StringMatcher
+			convertedCheck = stringmatcher.Full(check)
 			checks = append(checks, convertedCheck)
 		}
-		lm := NewStackAddressListMatcher().WithOperator(listmatcher.Ordered).
+		lm := NewStringListMatcher().WithOperator(listmatcher.Ordered).
 			WithValues(checks...)
 		checker.StackTrace = lm
 	}
@@ -976,33 +974,33 @@ nextCheck:
 	return nil
 }
 
-// StackAddressListMatcher checks a list of *tetragon.StackAddress fields
-type StackAddressListMatcher struct {
-	Operator listmatcher.Operator   `json:"operator"`
-	Values   []*StackAddressChecker `json:"values"`
+// StringListMatcher checks a list of string fields
+type StringListMatcher struct {
+	Operator listmatcher.Operator           `json:"operator"`
+	Values   []*stringmatcher.StringMatcher `json:"values"`
 }
 
-// NewStackAddressListMatcher creates a new StackAddressListMatcher. The checker defaults to a subset checker unless otherwise specified using WithOperator()
-func NewStackAddressListMatcher() *StackAddressListMatcher {
-	return &StackAddressListMatcher{
+// NewStringListMatcher creates a new StringListMatcher. The checker defaults to a subset checker unless otherwise specified using WithOperator()
+func NewStringListMatcher() *StringListMatcher {
+	return &StringListMatcher{
 		Operator: listmatcher.Subset,
 	}
 }
 
-// WithOperator sets the match kind for the StackAddressListMatcher
-func (checker *StackAddressListMatcher) WithOperator(operator listmatcher.Operator) *StackAddressListMatcher {
+// WithOperator sets the match kind for the StringListMatcher
+func (checker *StringListMatcher) WithOperator(operator listmatcher.Operator) *StringListMatcher {
 	checker.Operator = operator
 	return checker
 }
 
-// WithValues sets the checkers that the StackAddressListMatcher should use
-func (checker *StackAddressListMatcher) WithValues(values ...*StackAddressChecker) *StackAddressListMatcher {
+// WithValues sets the checkers that the StringListMatcher should use
+func (checker *StringListMatcher) WithValues(values ...*stringmatcher.StringMatcher) *StringListMatcher {
 	checker.Values = values
 	return checker
 }
 
-// Check checks a list of *tetragon.StackAddress fields
-func (checker *StackAddressListMatcher) Check(values []*tetragon.StackAddress) error {
+// Check checks a list of string fields
+func (checker *StringListMatcher) Check(values []string) error {
 	switch checker.Operator {
 	case listmatcher.Ordered:
 		return checker.orderedCheck(values)
@@ -1015,42 +1013,42 @@ func (checker *StackAddressListMatcher) Check(values []*tetragon.StackAddress) e
 	}
 }
 
-// orderedCheck checks a list of ordered *tetragon.StackAddress fields
-func (checker *StackAddressListMatcher) orderedCheck(values []*tetragon.StackAddress) error {
-	innerCheck := func(check *StackAddressChecker, value *tetragon.StackAddress) error {
-		if err := check.Check(value); err != nil {
+// orderedCheck checks a list of ordered string fields
+func (checker *StringListMatcher) orderedCheck(values []string) error {
+	innerCheck := func(check *stringmatcher.StringMatcher, value string) error {
+		if err := check.Match(value); err != nil {
 			return fmt.Errorf("StackTrace check failed: %w", err)
 		}
 		return nil
 	}
 
 	if len(checker.Values) != len(values) {
-		return fmt.Errorf("StackAddressListMatcher: Wanted %d elements, got %d", len(checker.Values), len(values))
+		return fmt.Errorf("StringListMatcher: Wanted %d elements, got %d", len(checker.Values), len(values))
 	}
 
 	for i, check := range checker.Values {
 		value := values[i]
 		if err := innerCheck(check, value); err != nil {
-			return fmt.Errorf("StackAddressListMatcher: Check failed on element %d: %w", i, err)
+			return fmt.Errorf("StringListMatcher: Check failed on element %d: %w", i, err)
 		}
 	}
 
 	return nil
 }
 
-// unorderedCheck checks a list of unordered *tetragon.StackAddress fields
-func (checker *StackAddressListMatcher) unorderedCheck(values []*tetragon.StackAddress) error {
+// unorderedCheck checks a list of unordered string fields
+func (checker *StringListMatcher) unorderedCheck(values []string) error {
 	if len(checker.Values) != len(values) {
-		return fmt.Errorf("StackAddressListMatcher: Wanted %d elements, got %d", len(checker.Values), len(values))
+		return fmt.Errorf("StringListMatcher: Wanted %d elements, got %d", len(checker.Values), len(values))
 	}
 
 	return checker.subsetCheck(values)
 }
 
-// subsetCheck checks a subset of *tetragon.StackAddress fields
-func (checker *StackAddressListMatcher) subsetCheck(values []*tetragon.StackAddress) error {
-	innerCheck := func(check *StackAddressChecker, value *tetragon.StackAddress) error {
-		if err := check.Check(value); err != nil {
+// subsetCheck checks a subset of string fields
+func (checker *StringListMatcher) subsetCheck(values []string) error {
+	innerCheck := func(check *stringmatcher.StringMatcher, value string) error {
+		if err := check.Match(value); err != nil {
 			return fmt.Errorf("StackTrace check failed: %w", err)
 		}
 		return nil
@@ -1070,7 +1068,7 @@ nextCheck:
 	}
 
 	if numMatched < numDesired {
-		return fmt.Errorf("StackAddressListMatcher: Check failed, only matched %d elements but wanted %d", numMatched, numDesired)
+		return fmt.Errorf("StringListMatcher: Check failed, only matched %d elements but wanted %d", numMatched, numDesired)
 	}
 
 	return nil
@@ -1630,88 +1628,6 @@ func (checker *RateLimitInfoChecker) FromRateLimitInfo(event *tetragon.RateLimit
 	{
 		val := event.NumberOfDroppedProcessEvents
 		checker.NumberOfDroppedProcessEvents = &val
-	}
-	return checker
-}
-
-// StackAddressChecker implements a checker struct to check a StackAddress field
-type StackAddressChecker struct {
-	Address *uint64                      `json:"address,omitempty"`
-	Symbol  *stringmatcher.StringMatcher `json:"symbol,omitempty"`
-	Offset  *uint64                      `json:"offset,omitempty"`
-}
-
-// NewStackAddressChecker creates a new StackAddressChecker
-func NewStackAddressChecker() *StackAddressChecker {
-	return &StackAddressChecker{}
-}
-
-// Get the type of the checker as a string
-func (checker *StackAddressChecker) GetCheckerType() string {
-	return "StackAddressChecker"
-}
-
-// Check checks a StackAddress field
-func (checker *StackAddressChecker) Check(event *tetragon.StackAddress) error {
-	if event == nil {
-		return fmt.Errorf("%s: StackAddress field is nil", CheckerLogPrefix(checker))
-	}
-
-	fieldChecks := func() error {
-		if checker.Address != nil {
-			if *checker.Address != event.Address {
-				return fmt.Errorf("Address has value %d which does not match expected value %d", event.Address, *checker.Address)
-			}
-		}
-		if checker.Symbol != nil {
-			if err := checker.Symbol.Match(event.Symbol); err != nil {
-				return fmt.Errorf("Symbol check failed: %w", err)
-			}
-		}
-		if checker.Offset != nil {
-			if *checker.Offset != event.Offset {
-				return fmt.Errorf("Offset has value %d which does not match expected value %d", event.Offset, *checker.Offset)
-			}
-		}
-		return nil
-	}
-	if err := fieldChecks(); err != nil {
-		return fmt.Errorf("%s: %w", CheckerLogPrefix(checker), err)
-	}
-	return nil
-}
-
-// WithAddress adds a Address check to the StackAddressChecker
-func (checker *StackAddressChecker) WithAddress(check uint64) *StackAddressChecker {
-	checker.Address = &check
-	return checker
-}
-
-// WithSymbol adds a Symbol check to the StackAddressChecker
-func (checker *StackAddressChecker) WithSymbol(check *stringmatcher.StringMatcher) *StackAddressChecker {
-	checker.Symbol = check
-	return checker
-}
-
-// WithOffset adds a Offset check to the StackAddressChecker
-func (checker *StackAddressChecker) WithOffset(check uint64) *StackAddressChecker {
-	checker.Offset = &check
-	return checker
-}
-
-//FromStackAddress populates the StackAddressChecker using data from a StackAddress field
-func (checker *StackAddressChecker) FromStackAddress(event *tetragon.StackAddress) *StackAddressChecker {
-	if event == nil {
-		return checker
-	}
-	{
-		val := event.Address
-		checker.Address = &val
-	}
-	checker.Symbol = stringmatcher.Full(event.Symbol)
-	{
-		val := event.Offset
-		checker.Offset = &val
 	}
 	return checker
 }

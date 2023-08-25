@@ -128,6 +128,10 @@ type genericKprobe struct {
 
 	// is there override defined for the kprobe
 	hasOverride bool
+
+	// reference to a stack trace map, must be closed when unloading the kprobe,
+	// this is done in the sensor PostUnloadHook
+	stackTraceMapRef *ebpf.Map
 }
 
 // pendingEvent is an event waiting to be merged with another event.
@@ -252,6 +256,9 @@ func createMultiKprobeSensor(sensorPath string, multiIDs, multiRetIDs []idtable.
 
 	selNamesMap := program.MapBuilderPin("sel_names_map", sensors.PathJoin(pinPath, "sel_names_map"), load)
 	maps = append(maps, selNamesMap)
+
+	stackTraceMap := program.MapBuilderPin("stack_trace_map", sensors.PathJoin(pinPath, "stack_trace_map"), load)
+	maps = append(maps, stackTraceMap)
 
 	if kernels.EnableLargeProgs() {
 		socktrack := program.MapBuilderPin("socktrack_map", sensors.PathJoin(sensorPath, "socktrack_map"), load)
@@ -494,9 +501,22 @@ func createGenericKprobeSensor(
 		PostUnloadHook: func() error {
 			var errs error
 			for _, idx := range addedKprobeIndices {
-				_, err := genericKprobeTable.RemoveEntry(idtable.EntryID{ID: idx})
+				entry, err := genericKprobeTable.RemoveEntry(idtable.EntryID{ID: idx})
 				if err != nil {
 					errs = errors.Join(errs, err)
+				}
+
+				// close the eventual reference to the stack trace map
+				gk, ok := entry.(*genericKprobe)
+				if !ok {
+					errs = errors.Join(errs, fmt.Errorf("entry removed from genericKprobeTable with invalid type: %T (%v)", entry, entry))
+				} else {
+					if gk.stackTraceMapRef != nil {
+						err = gk.stackTraceMapRef.Close()
+						if err != nil {
+							errs = errors.Join(errs, fmt.Errorf("failed to close map: %v", gk.stackTraceMapRef))
+						}
+					}
 				}
 			}
 			return errs
@@ -760,7 +780,7 @@ func addKprobe(funcName string, f *v1alpha1.KProbeSpec, in *addKprobeIn) (out *a
 	selNamesMap := program.MapBuilderPin("sel_names_map", sensors.PathJoin(pinPath, "sel_names_map"), load)
 	out.maps = append(out.maps, selNamesMap)
 
-	stackTraceMap := program.MapBuilderPin("stack_traces_map", sensors.PathJoin(pinPath, "stack_traces_map"), load)
+	stackTraceMap := program.MapBuilderPin("stack_trace_map", sensors.PathJoin(pinPath, "stack_trace_map"), load)
 	out.maps = append(out.maps, stackTraceMap)
 
 	if kernels.EnableLargeProgs() {
@@ -1091,18 +1111,27 @@ func handleGenericKprobe(r *bytes.Reader) ([]observer.Event, error) {
 			// remove the error part
 			id := uint32(m.StackID)
 
-			stackTraceMap, err := ebpf.LoadPinnedMap("/sys/fs/bpf/tetragon/gkp-sensor-1-gkp-0-stack_traces_map", &ebpf.LoadPinOptions{
-				ReadOnly: true,
-			})
-			if err != nil {
-				logger.GetLogger().WithError(err).Warn("failed to load the stacktrace map")
+			// lazy load the map reference if needed
+			if gk.stackTraceMapRef == nil {
+				bpf.MapPrefixPath()
+				gk.stackTraceMapRef, err = ebpf.LoadPinnedMap(path.Join(bpf.MapPrefixPath(), gk.pinPathPrefix)+"-stack_trace_map", &ebpf.LoadPinOptions{
+					ReadOnly: true,
+				})
+				if err != nil {
+					logger.GetLogger().WithError(err).Warn("failed to load the stacktrace map")
+				}
+				// close this in cleanup postHook defer stackTraceMap.Close()
 			}
-			defer stackTraceMap.Close()
 
-			err = stackTraceMap.Lookup(id, &unix.StackTrace.Stack)
-			if err != nil {
-				log.Fatal(err)
+			// this can't be an else statement in the previous block since it
+			// must execute as well when the reference is first initialized
+			if gk.stackTraceMapRef != nil {
+				err = gk.stackTraceMapRef.Lookup(id, &unix.StackTrace)
+				if err != nil {
+					log.Fatal(err)
+				}
 			}
+
 		}
 	}
 

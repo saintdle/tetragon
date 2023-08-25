@@ -20,7 +20,6 @@ import "google/protobuf/wrappers.proto";
 package tetragon;
 
 import "tetragon/capabilities.proto";
-import "tetragon/stack.proto";
 
 message Image {
     // Identifier of the container image composed of the registry path and the
@@ -400,6 +399,8 @@ enum KprobeAction {
 	KPROBE_ACTION_NOPOST     = 9;
     // Signal action sends specified signal to the process.
 	KPROBE_ACTION_SIGNAL     = 10;
+    // StackTrace action retrieves the kernel stack trace of the call.
+	KPROBE_ACTION_STACKTRACE = 12;
 }
 
 message ProcessKprobe {
@@ -415,7 +416,7 @@ message ProcessKprobe {
     KprobeArgument return = 5;
     // Action performed when the kprobe matched.
     KprobeAction action = 6;
-    repeated StackAddress stack_trace = 7;
+    repeated string stack_trace = 7;
 }
 
 message ProcessTracepoint {

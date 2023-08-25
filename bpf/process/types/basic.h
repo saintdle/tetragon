@@ -1804,7 +1804,7 @@ struct {
 	__uint(max_entries, 32768);
 	__uint(key_size, sizeof(__u32));
 	__uint(value_size, sizeof(__u64) * PERF_MAX_STACK_DEPTH);
-} stack_traces_map SEC(".maps");
+} stack_trace_map SEC(".maps");
 
 static inline __attribute__((always_inline)) __u32
 do_action(void *ctx, __u32 i, struct msg_generic_kprobe *e,
@@ -1884,7 +1884,7 @@ do_action(void *ctx, __u32 i, struct msg_generic_kprobe *e,
 		// old one was overwritten).
 		//
 		// Here we just signal that there was a collision returning -EEXIST.
-		e->stack_id = get_stackid(ctx, &stack_traces_map, 0);
+		e->stack_id = get_stackid(ctx, &stack_trace_map, 0);
 	default:
 		break;
 	}
