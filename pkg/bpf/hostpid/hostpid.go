@@ -116,6 +116,9 @@ func HostPID() (int32, error) {
 	unix.Seek(int(filterVal.fd), filterVal.off, int(filterVal.whence))
 
 	events, err := readEvents(rd)
+	if err != nil {
+		return 0, err
+	}
 	if len(events) != 1 {
 		return 0, fmt.Errorf("received %d events instead of 1", len(events))
 	}
