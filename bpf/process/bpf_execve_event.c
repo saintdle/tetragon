@@ -177,10 +177,14 @@ event_execve(struct sched_execve_args *ctx)
 
 	p = &event->process;
 	p->flags = EVENT_EXECVE;
-	/* Send the TGID and TID, as during an execve all threads other
-	 * than the calling thread are destroyed, but since we hook late
-	 * during the execve then the calling thread at the hook time is
-	 * already the new thread group leader.
+	/**
+	 * Per thread tracking rules TID == PID :
+	 *  At exec all threads other than the calling one are destroyed, so
+	 *  current becomes the new thread leader since we hook late during
+	 *  execve.
+	 *
+	 *  TODO: for now we send the TID but later we should remove this
+	 *    and set it directly inside user space.
 	 */
 	p->pid = pid >> 32;
 	p->tid = (__u32)pid;

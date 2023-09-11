@@ -75,9 +75,14 @@ BPF_KPROBE(event_wake_up_new_task, struct task_struct *task)
 			.common.ktime = curr->key.ktime,
 			.parent = curr->pkey,
 			.tgid = curr->key.pid,
-			/* Since we generate one event per thread group, then when
-			 * the task wakes up, there will be only one thread here:
-			 * the thread group leader. Pass its thread id to user-space.
+			/**
+			 * Per thread tracking rules TID == PID :
+			 *  Since we generate one event per thread group, then when this task
+			 *  wakes up it will be the only one in the thread group, and it is
+			 *  the leader. Ensure to pass TID to user space.
+			 *
+			 *  TODO: for now we send the TID but later we should remove this
+			 *    and set it directly inside user space.
 			 */
 			.tid = BPF_CORE_READ(task, pid),
 			.ktime = curr->key.ktime,

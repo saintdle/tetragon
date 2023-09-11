@@ -204,9 +204,13 @@ func initProcessInternalExec(
 	ns := namespace.GetMsgNamespaces(namespaces)
 	binary := path.GetBinaryAbsolutePath(process.Filename, cwd)
 
-	// Ensure that exported events have the TID set. For events from Kernel
+	// Per thread tracking rules PID == TID: ensure that we get TID equals PID.
+	//
+	// Also ensure that exported events have the TID set. For events from kernel
 	// we usually use PID == 0, so instead of checking against 0, assert that
-	// TGID == TID
+	// TGID == TID.
+	//
+	// TODO: remove the TID from bpf side and the following check.
 	if process.PID != process.TID {
 		logger.GetLogger().WithFields(logrus.Fields{
 			"event.name":            "Execve",
@@ -260,8 +264,11 @@ func initProcessInternalClone(event *tetragonAPI.MsgCloneEvent,
 	pi.process.ParentExecId = parentExecId
 	pi.process.ExecId = GetProcessID(event.PID, event.Ktime)
 	pi.process.Pid = &wrapperspb.UInt32Value{Value: event.PID}
-	// Since from BPF side we only generate one clone event per
-	// thread group that is for the leader, assert on that.
+	// Per thread tracking rules PID == TID: ensure that we get TID equals PID.
+	//  Since from BPF side we only generate one clone event per
+	//  thread group that is for the leader, assert on that.
+	//
+	// TODO: remove the TID from bpf side and the following check.
 	if event.PID != event.TID {
 		logger.GetLogger().WithFields(logrus.Fields{
 			"event.name":            "Clone",

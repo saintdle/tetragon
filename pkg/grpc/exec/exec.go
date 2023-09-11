@@ -288,6 +288,8 @@ func GetProcessExit(event *MsgExitEventUnix) *tetragon.ProcessExit {
 	code := event.Info.Code >> 8
 	signal := readerexec.Signal(event.Info.Code & 0xFF)
 
+	// Per thread tracking rules PID == TID: ensure that we get TID equals PID.
+	//
 	// Now since we want to correlate the exit and exec events, then
 	// the final TID of the exit event _must matches_ the PID and TID of exec
 	// event. The tetragonEvent.Process of this exit event is constructed either:
@@ -306,6 +308,8 @@ func GetProcessExit(event *MsgExitEventUnix) *tetragon.ProcessExit {
 	//
 	// Check must be against event.Info.Tid so we cover all the cases of
 	// the tetragonProcess.Pid against BPF.
+	//
+	// TODO: remove the TID from bpf side and the following check.
 	if tetragonProcess.Pid.GetValue() != event.Info.Tid {
 		logger.GetLogger().WithFields(logrus.Fields{
 			"event.name":           "Exit",
