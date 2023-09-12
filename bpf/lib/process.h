@@ -6,6 +6,7 @@
 
 #include "bpf_event.h"
 #include "bpf_helpers.h"
+#include "bpf_cred.h"
 
 /* Applying 'packed' attribute to structs causes clang to write to the
  * members byte-by-byte, as offsets may not be aligned. This is bad for
@@ -264,6 +265,8 @@ struct msg_execve_event {
 	struct msg_execve_key parent;
 	__u64 parent_flags;
 	struct msg_capabilities caps;
+	/* TODO: include caps above into creds */
+	struct tg_cred_minimal creds;
 	struct msg_ns ns;
 	struct msg_execve_key cleanup_key;
 	/* if add anything above please also update the args of

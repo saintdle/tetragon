@@ -40,6 +40,7 @@ type ProcessInternal struct {
 	process *tetragon.Process
 	// additional internal fields below
 	capabilities *tetragon.Capabilities
+	apiCreds     *tetragon.ProcessCredentials
 	namespaces   *tetragon.Namespaces
 	// garbage collector metadata
 	color  int
@@ -98,6 +99,7 @@ func (pi *ProcessInternal) cloneInternalProcessCopy() *ProcessInternal {
 	return &ProcessInternal{
 		process:      proto.Clone(pi.process).(*tetragon.Process),
 		capabilities: pi.capabilities,
+		apiCreds:     pi.apiCreds,
 		namespaces:   pi.namespaces,
 		refcnt:       1, // Explicitly initialize refcnt to 1
 	}
@@ -130,6 +132,7 @@ func (pi *ProcessInternal) AnnotateProcess(cred, ns bool) error {
 	}
 	if cred {
 		process.Cap = pi.capabilities
+		process.ProcessCredentials = pi.apiCreds
 	}
 	if ns {
 		process.Ns = pi.namespaces
@@ -189,6 +192,7 @@ func initProcessInternalExec(
 	containerID string,
 	parent tetragonAPI.MsgExecveKey,
 	capabilities tetragonAPI.MsgCapabilities,
+	creds tetragonAPI.MsgGenericCredMinimal,
 	namespaces tetragonAPI.MsgNamespaces,
 ) *ProcessInternal {
 	args, cwd := ArgsDecoder(process.Args, process.Flags)
@@ -200,9 +204,21 @@ func initProcessInternalExec(
 	}
 	execID := GetExecID(&process)
 	protoPod := GetPodInfo(containerID, process.Filename, args, process.NSPID)
-	caps := caps.GetMsgCapabilities(capabilities)
+	apiCaps := caps.GetMsgCapabilities(capabilities)
 	ns := namespace.GetMsgNamespaces(namespaces)
 	binary := path.GetBinaryAbsolutePath(process.Filename, cwd)
+
+	apiCreds := &tetragon.ProcessCredentials{
+		Uid:        &wrapperspb.UInt32Value{Value: creds.Uid},
+		Gid:        &wrapperspb.UInt32Value{Value: creds.Gid},
+		Euid:       &wrapperspb.UInt32Value{Value: creds.Euid},
+		Egid:       &wrapperspb.UInt32Value{Value: creds.Egid},
+		Suid:       &wrapperspb.UInt32Value{Value: creds.Suid},
+		Sgid:       &wrapperspb.UInt32Value{Value: creds.Sgid},
+		Fsuid:      &wrapperspb.UInt32Value{Value: creds.FSuid},
+		Fsgid:      &wrapperspb.UInt32Value{Value: creds.FSgid},
+		Securebits: caps.GetSecureBitsTypes(creds.SecureBits),
+	}
 
 	// Per thread tracking rules PID == TID: ensure that we get TID equals PID.
 	//
@@ -240,7 +256,8 @@ func initProcessInternalExec(
 			ParentExecId: parentExecID,
 			Refcnt:       0,
 		},
-		capabilities: caps,
+		capabilities: apiCaps,
+		apiCreds:     apiCreds,
 		namespaces:   ns,
 		refcnt:       1,
 	}
@@ -329,9 +346,9 @@ func AddExecEvent(event *tetragonAPI.MsgExecveEventUnix) *ProcessInternal {
 	if event.CleanupProcess.Ktime == 0 || event.Process.Flags&api.EventClone != 0 {
 		// there is a case where we cannot find this entry in execve_map
 		// in that case we use as parent what Linux knows
-		proc = initProcessInternalExec(event.Process, event.Kube.Docker, event.Parent, event.Capabilities, event.Namespaces)
+		proc = initProcessInternalExec(event.Process, event.Kube.Docker, event.Parent, event.Capabilities, event.Creds, event.Namespaces)
 	} else {
-		proc = initProcessInternalExec(event.Process, event.Kube.Docker, event.CleanupProcess, event.Capabilities, event.Namespaces)
+		proc = initProcessInternalExec(event.Process, event.Kube.Docker, event.CleanupProcess, event.Capabilities, event.Creds, event.Namespaces)
 	}
 
 	procCache.add(proc)
