@@ -10,6 +10,8 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"github.com/cilium/tetragon/pkg/reader/proc"
+
 	hubble "github.com/cilium/tetragon/pkg/oldhubble/cilium"
 	"github.com/sirupsen/logrus"
 
@@ -39,9 +41,10 @@ type ProcessInternal struct {
 	// externally visible process struct.
 	process *tetragon.Process
 	// additional internal fields below
-	capabilities *tetragon.Capabilities
-	apiCreds     *tetragon.ProcessCredentials
-	namespaces   *tetragon.Namespaces
+	capabilities  *tetragon.Capabilities
+	apiCreds      *tetragon.ProcessCredentials
+	apiBinaryProp *tetragon.BinaryProperties
+	namespaces    *tetragon.Namespaces
 	// garbage collector metadata
 	color  int
 	refcnt uint32
@@ -97,11 +100,12 @@ func (pi *ProcessInternal) cloneInternalProcessCopy() *ProcessInternal {
 	pi.mu.Lock()
 	defer pi.mu.Unlock()
 	return &ProcessInternal{
-		process:      proto.Clone(pi.process).(*tetragon.Process),
-		capabilities: pi.capabilities,
-		apiCreds:     pi.apiCreds,
-		namespaces:   pi.namespaces,
-		refcnt:       1, // Explicitly initialize refcnt to 1
+		process:       proto.Clone(pi.process).(*tetragon.Process),
+		capabilities:  pi.capabilities,
+		apiCreds:      pi.apiCreds,
+		apiBinaryProp: pi.apiBinaryProp,
+		namespaces:    pi.namespaces,
+		refcnt:        1, // Explicitly initialize refcnt to 1
 	}
 }
 
@@ -133,6 +137,21 @@ func (pi *ProcessInternal) AnnotateProcess(cred, ns bool) error {
 	if cred {
 		process.Cap = pi.capabilities
 		process.ProcessCredentials = pi.apiCreds
+		if pi.apiBinaryProp != nil {
+			annot := false
+			prop := &tetragon.BinaryProperties{}
+			if pi.apiBinaryProp.Setuid.GetValue() != proc.InvalidUid {
+				prop.Setuid = pi.apiBinaryProp.Setuid
+				annot = true
+			}
+			if pi.apiBinaryProp.Setgid.GetValue() != proc.InvalidUid {
+				prop.Setgid = pi.apiBinaryProp.Setgid
+				annot = true
+			}
+			if annot {
+				process.BinaryProperties = prop
+			}
+		}
 	}
 	if ns {
 		process.Ns = pi.namespaces
@@ -220,6 +239,18 @@ func initProcessInternalExec(
 		Securebits: caps.GetSecureBitsTypes(creds.SecureBits),
 	}
 
+	apiBinaryProp := &tetragon.BinaryProperties{
+		// Initialize with InvalidUid
+		Setuid: &wrapperspb.UInt32Value{Value: proc.InvalidUid},
+		Setgid: &wrapperspb.UInt32Value{Value: proc.InvalidUid},
+	}
+	if creds.Uid != creds.Euid {
+		apiBinaryProp.Setuid = &wrapperspb.UInt32Value{Value: creds.Euid}
+	}
+	if creds.Gid != creds.Egid {
+		apiBinaryProp.Setgid = &wrapperspb.UInt32Value{Value: creds.Egid}
+	}
+
 	// Per thread tracking rules PID == TID: ensure that we get TID equals PID.
 	//
 	// Also ensure that exported events have the TID set. For events from kernel
@@ -256,10 +287,11 @@ func initProcessInternalExec(
 			ParentExecId: parentExecID,
 			Refcnt:       0,
 		},
-		capabilities: apiCaps,
-		apiCreds:     apiCreds,
-		namespaces:   ns,
-		refcnt:       1,
+		capabilities:  apiCaps,
+		apiCreds:      apiCreds,
+		apiBinaryProp: apiBinaryProp,
+		namespaces:    ns,
+		refcnt:        1,
 	}
 }
 
